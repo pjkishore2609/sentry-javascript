@@ -45,6 +45,7 @@ export interface WrapperOptions {
    * @default false
    */
   captureAllSettledReasons: boolean;
+  roomId: String;
 }
 
 export const defaultIntegrations: Integration[] = [...Sentry.defaultIntegrations, new AWSServices({ optional: true })];
@@ -201,11 +202,12 @@ function tryGetRemainingTimeInMillis(context: Context): number {
  * @param context AWS Lambda context that will be used to extract some part of the data
  * @param startTime performance.now() when wrapHandler was invoked
  */
-function enhanceScopeWithEnvironmentData(scope: Scope, context: Context, startTime: number): void {
+function enhanceScopeWithEnvironmentData(scope: Scope, context: Context, startTime: number, roomId:String): void {
   scope.setTransactionName(context.functionName);
 
   scope.setTag('server_name', process.env._AWS_XRAY_DAEMON_ADDRESS || process.env.SENTRY_NAME || hostname());
   scope.setTag('url', `awslambda:///${context.functionName}`);
+  scope.setTag("roomId", roomId)
 
   scope.setContext('aws.lambda', {
     aws_request_id: context.awsRequestId,
@@ -324,7 +326,7 @@ export function wrapHandler<TEvent, TResult>(
     const scope = hub.pushScope();
     let rv: TResult;
     try {
-      enhanceScopeWithEnvironmentData(scope, context, START_TIME);
+      enhanceScopeWithEnvironmentData(scope, context, START_TIME, options.roomId);
       // We put the transaction on the scope so users can attach children to it
       scope.setSpan(transaction);
       rv = await asyncHandler(event, context);
